@@ -13,14 +13,20 @@
 struct node
 {
   std::vector<std::shared_ptr<node>> neighbours;
+  std::vector<std::shared_ptr<node>> row;
+  std::vector<std::shared_ptr<node>> column;
+  std::vector<std::shared_ptr<node>> block;
   std::unordered_map<int, bool> labels;
+  bool solved = false;
 
   void set (int label);
   void update (int label);
+  bool check_unique (int label, std::vector<std::shared_ptr<node>> group);
 };
 
 void node::set (int label)
 {
+  this->solved = true;
   this->labels.clear();
   this->labels[label] = true;
   for (auto n : this->neighbours)
@@ -29,11 +35,32 @@ void node::set (int label)
 
 void node::update (int label)
 {
-  if (this->labels.size() == 1) return;
+  if (this->solved) return;
 
   this->labels.erase(label);
+
+  if (this->check_unique(label, this->row)
+      || this->check_unique(label, this->column)
+      || this->check_unique(label, this->block))
+    return;
+
   if (this->labels.size() == 1)
     this->set(this->labels.begin()->first);
+}
+
+bool node::check_unique (int label, std::vector<std::shared_ptr<node>> group)
+{
+  std::unordered_map<int, bool> glabels;
+  for (auto n : group)
+    for (auto p : n->labels) glabels[p.first] = true;
+
+  for (auto l : this->labels)
+    if (!glabels[l.first]) {
+      this->set(l.first);
+      return true;
+    }
+
+  return false;
 }
 
 
@@ -54,8 +81,22 @@ std::vector<std::shared_ptr<node>> make_board (int size)
       bool sameblkx = (x / blksize) == (kx / blksize);
       bool sameblky = (y / blksize) == (ky / blksize);
       bool sameblk = sameblkx && sameblky;
-      bool samerowcol = (x == kx) || (y == ky);
-      if (sameblk || samerowcol) {
+      bool samerow = y == ky;
+      bool samecol = x == kx;
+      if (sameblk || samerow || samecol) {
+        if (samerow) {
+          board[k]->row.push_back(current);
+          current->row.push_back(board[k]);
+        }
+        if (samecol) {
+          board[k]->column.push_back(current);
+          current->column.push_back(board[k]);
+        }
+        if (sameblk) {
+          board[k]->block.push_back(current);
+          current->block.push_back(board[k]);
+        }
+
         board[k]->neighbours.push_back(current);
         current->neighbours.push_back(board[k]);
       }
@@ -75,7 +116,8 @@ std::string format_board (std::vector<std::shared_ptr<node>>& board)
   for (int x = 0; x < size; ++x) {
     for (int y = 0; y < size; ++y) {
       int index = (x * size) + y;
-      if (board[index]->labels.size() == 1) str << board[index]->labels.begin()->first;
+      if (board[index]->solved)
+        str << board[index]->labels.begin()->first;
       else str << "-";
       str << " ";
     }
@@ -108,7 +150,7 @@ void set_board (std::string input, std::vector<std::shared_ptr<node>>& board)
 std::shared_ptr<node> unsolved_node (std::vector<std::shared_ptr<node>>& board)
 {
   for (auto n : board)
-    if (n->labels.size() > 1) return n;
+    if (!(n->solved)) return n;
 
   return nullptr;
 }
