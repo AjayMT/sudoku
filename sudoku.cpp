@@ -19,33 +19,41 @@ struct node
   std::unordered_map<int, bool> labels;
   bool solved = false;
 
-  void set (int label);
-  void update (int label);
+  bool set (int label);
+  bool update (int label);
   bool check_unique (int label, std::vector<std::shared_ptr<node>> group);
 };
 
-void node::set (int label)
+bool node::set (int label)
 {
   this->solved = true;
   this->labels.clear();
   this->labels[label] = true;
+
+  bool success = true;
   for (auto n : this->neighbours)
-    n->update(label);
+    if (!(n->update(label))) success = false;
+
+  return success;
 }
 
-void node::update (int label)
+bool node::update (int label)
 {
-  if (this->solved) return;
+  if (this->solved) return label != this->labels.begin()->first;
 
   this->labels.erase(label);
 
-  if (this->check_unique(label, this->row)
-      || this->check_unique(label, this->column)
-      || this->check_unique(label, this->block))
-    return;
+  bool success = this->check_unique(label, this->row);
+  if (this->solved) return success;
+  success = this->check_unique(label, this->column);
+  if (this->solved) return success;
+  success = this->check_unique(label, this->block);
+  if (this->solved) return success;
 
   if (this->labels.size() == 1)
-    this->set(this->labels.begin()->first);
+    return this->set(this->labels.begin()->first);
+
+  return true;
 }
 
 bool node::check_unique (int label, std::vector<std::shared_ptr<node>> group)
@@ -55,12 +63,10 @@ bool node::check_unique (int label, std::vector<std::shared_ptr<node>> group)
     for (auto p : n->labels) glabels[p.first] = true;
 
   for (auto l : this->labels)
-    if (!glabels[l.first]) {
-      this->set(l.first);
-      return true;
-    }
+    if (!glabels[l.first])
+      return this->set(l.first);
 
-  return false;
+  return true;
 }
 
 
@@ -167,6 +173,47 @@ std::ostream& operator<< (std::ostream& out, std::unordered_map<int, bool> map)
 }
 
 
+std::vector<std::pair<std::unordered_map<int, bool>, bool>>
+capture_board (std::vector<std::shared_ptr<node>>& board)
+{
+  std::vector<std::pair<std::unordered_map<int, bool>, bool>> captured;
+  captured.reserve(board.size());
+
+  for (auto n : board) {
+    auto p = std::make_pair(n->labels, n->solved);
+    captured.push_back(p);
+  }
+
+  return captured;
+}
+
+
+void restore_board (std::vector<std::shared_ptr<node>>& board,
+                    std::vector<std::pair<std::unordered_map<int, bool>, bool>>& captured)
+{
+  for (int i = 0; i < board.size(); ++i) {
+    board[i]->labels = captured[i].first;
+    board[i]->solved = captured[i].second;
+  }
+}
+
+
+bool bruteforce_board (std::vector<std::shared_ptr<node>>& board, std::shared_ptr<node> u)
+{
+  if (u == nullptr) return true;
+
+  auto labels = u->labels;
+  for (auto l : labels) {
+    auto captured = capture_board(board);
+    bool success = u->set(l.first);
+    if (success) return bruteforce_board(board, unsolved_node(board));
+    restore_board(board, captured);
+  }
+
+  return false;
+}
+
+
 int main (int argc, char *argv[])
 {
   if (argc != 2) {
@@ -182,10 +229,8 @@ int main (int argc, char *argv[])
 
   set_board(input, board);
 
-  // solve greedily
-  // auto u = unsolved_node(board);
-  // for (; u != nullptr; u = unsolved_node(board))
-  //   u->set(u->labels.begin()->first);
+  // brute force :(
+  bruteforce_board(board, unsolved_node(board));
 
   std::cout << format_board(board);
 
