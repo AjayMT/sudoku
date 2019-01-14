@@ -12,16 +12,16 @@
 
 struct node
 {
-  std::vector<std::shared_ptr<node>> neighbours;
-  std::vector<std::shared_ptr<node>> row;
-  std::vector<std::shared_ptr<node>> column;
-  std::vector<std::shared_ptr<node>> block;
+  std::vector<std::weak_ptr<node>> neighbours;
+  std::vector<std::weak_ptr<node>> row;
+  std::vector<std::weak_ptr<node>> column;
+  std::vector<std::weak_ptr<node>> block;
   std::unordered_map<int, bool> labels;
   bool solved = false;
 
   bool set (int label);
   bool update (int label);
-  bool check_unique (int label, std::vector<std::shared_ptr<node>> group);
+  bool check_unique (int label, std::vector<std::weak_ptr<node>> group);
 };
 
 bool node::set (int label)
@@ -31,7 +31,7 @@ bool node::set (int label)
   this->labels[label] = true;
 
   for (auto n : this->neighbours)
-    if (!(n->update(label))) return false;
+    if (!(std::shared_ptr<node>(n)->update(label))) return false;
 
   return true;
 }
@@ -55,11 +55,12 @@ bool node::update (int label)
   return true;
 }
 
-bool node::check_unique (int label, std::vector<std::shared_ptr<node>> group)
+bool node::check_unique (int label, std::vector<std::weak_ptr<node>> group)
 {
   std::unordered_map<int, bool> glabels;
   for (auto n : group)
-    for (auto p : n->labels) glabels[p.first] = true;
+    for (auto p : std::shared_ptr<node>(n)->labels)
+      glabels[p.first] = true;
 
   for (auto l : this->labels)
     if (!glabels[l.first])
@@ -77,7 +78,7 @@ std::vector<std::shared_ptr<node>> make_board (int size)
   for (int i = 0; i < (size * size); ++i) {
     int x = i % size;
     int y = i / size;
-    auto current = std::make_shared<node>(node());
+    auto current = std::make_shared<node>();
 
     for (int j = 1; j <= size; ++j) current->labels[j] = true;
     for (int k = 0; k < board.size(); ++k) {
@@ -89,21 +90,24 @@ std::vector<std::shared_ptr<node>> make_board (int size)
       bool samerow = y == ky;
       bool samecol = x == kx;
       if (sameblk || samerow || samecol) {
+        auto wp_current = std::weak_ptr<node>(current);
+        auto wp_boardk = std::weak_ptr<node>(board[k]);
+
         if (samerow) {
-          board[k]->row.push_back(current);
-          current->row.push_back(board[k]);
+          board[k]->row.push_back(wp_current);
+          current->row.push_back(wp_boardk);
         }
         if (samecol) {
-          board[k]->column.push_back(current);
-          current->column.push_back(board[k]);
+          board[k]->column.push_back(wp_current);
+          current->column.push_back(wp_boardk);
         }
         if (sameblk) {
-          board[k]->block.push_back(current);
-          current->block.push_back(board[k]);
+          board[k]->block.push_back(wp_current);
+          current->block.push_back(wp_boardk);
         }
 
-        board[k]->neighbours.push_back(current);
-        current->neighbours.push_back(board[k]);
+        board[k]->neighbours.push_back(wp_current);
+        current->neighbours.push_back(wp_boardk);
       }
     }
 
@@ -134,7 +138,7 @@ std::string format_board (std::vector<std::shared_ptr<node>>& board)
 }
 
 
-void set_board (std::string input, std::vector<std::shared_ptr<node>>& board)
+void set_board (std::vector<std::shared_ptr<node>>& board, std::string input)
 {
   int size = (int)std::sqrt(board.size());
   std::stringstream inputstream(input);
@@ -226,7 +230,7 @@ int main (int argc, char *argv[])
   std::istreambuf_iterator<char> stdin_begin(std::cin), stdin_end;
   std::string input(stdin_begin, stdin_end);
 
-  set_board(input, board);
+  set_board(board, input);
 
   // brute force :(
   bruteforce_board(board, unsolved_node(board));
