@@ -30,11 +30,10 @@ bool node::set (int label)
   this->labels.clear();
   this->labels[label] = true;
 
-  bool success = true;
   for (auto n : this->neighbours)
-    if (!(n->update(label))) success = false;
+    if (!(n->update(label))) return false;
 
-  return success;
+  return true;
 }
 
 bool node::update (int label)
@@ -178,7 +177,6 @@ capture_board (std::vector<std::shared_ptr<node>>& board)
 {
   std::vector<std::pair<std::unordered_map<int, bool>, bool>> captured;
   captured.reserve(board.size());
-
   for (auto n : board) {
     auto p = std::make_pair(n->labels, n->solved);
     captured.push_back(p);
@@ -206,9 +204,8 @@ bool bruteforce_board (std::vector<std::shared_ptr<node>>& board, std::shared_pt
   for (auto l : labels) {
     auto captured = capture_board(board);
     bool success = u->set(l.first);
-    if (success)
-      if (bruteforce_board(board, unsolved_node(board)))
-        return true;
+    if (success && bruteforce_board(board, unsolved_node(board)))
+      return true;
     restore_board(board, captured);
   }
 
