@@ -21,7 +21,7 @@ struct node
 
   bool set (int label);
   bool update (int label);
-  bool check_unique (int label, std::vector<std::weak_ptr<node>> group);
+  bool check_unique (int label, std::vector<std::weak_ptr<node>>& group);
 };
 
 bool node::set (int label)
@@ -55,7 +55,7 @@ bool node::update (int label)
   return true;
 }
 
-bool node::check_unique (int label, std::vector<std::weak_ptr<node>> group)
+bool node::check_unique (int label, std::vector<std::weak_ptr<node>>& group)
 {
   std::unordered_map<int, bool> glabels;
   for (auto n : group)
@@ -162,17 +162,6 @@ std::shared_ptr<node> unsolved_node (std::vector<std::shared_ptr<node>>& board)
     if (!(n->solved)) return n;
 
   return nullptr;
-}
-
-
-// for debugging
-std::ostream& operator<< (std::ostream& out, std::unordered_map<int, bool> map)
-{
-  out << "[";
-  for (auto pair : map) out << pair.first << ",";
-  out << "]";
-
-  return out;
 }
 
 
