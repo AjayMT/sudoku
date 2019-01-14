@@ -206,7 +206,9 @@ bool bruteforce_board (std::vector<std::shared_ptr<node>>& board, std::shared_pt
   for (auto l : labels) {
     auto captured = capture_board(board);
     bool success = u->set(l.first);
-    if (success) return bruteforce_board(board, unsolved_node(board));
+    if (success)
+      if (bruteforce_board(board, unsolved_node(board)))
+        return true;
     restore_board(board, captured);
   }
 
