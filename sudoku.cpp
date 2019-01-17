@@ -10,6 +10,12 @@
 #include <cstdlib>
 
 
+// a `node` is a single square on the board. row, column and block are vectors
+// of pointers to the other nodes in the same row, column and block respectively.
+// neighbours is the union of row, column and block, i.e all the nodes that this
+// node cannot share a number with. labels is a map containing all the possible
+// labels (i.e numbers) for this node. a node is solved when it has only one possible
+// label
 struct node
 {
   std::vector<std::weak_ptr<node>> neighbours;
@@ -24,6 +30,10 @@ struct node
   bool check_unique (int label, std::vector<std::weak_ptr<node>>& group);
 };
 
+// this function solves a node by reducing its 'labels' map to just one label
+// and updating its solved state. upon being solved, every node updates all of its
+// neighbours. this function returns false if setting the node's label resulted
+// in an invalid configuration, and true otherwise.
 bool node::set (int label)
 {
   this->solved = true;
@@ -36,6 +46,12 @@ bool node::set (int label)
   return true;
 }
 
+// this function updates a node's set of possible labels (and can therefore update
+// its solved state) every time one of its neighbours is solved. if a node has only
+// one possible label or has a unique label among its row/column/block (see check_unique),
+// node::set is called as well, which updates the node's solved state. this function
+// returns false if updating the node results in an invalid configuration, and true
+// otherwise.
 bool node::update (int label)
 {
   if (this->solved) return label != this->labels.begin()->first;
@@ -55,6 +71,10 @@ bool node::update (int label)
   return true;
 }
 
+// this function checks if a node has a label that is unique among nodes within
+// a particular group (i.e row/column/block). if so, node::set is called and the
+// node is 'solved'. this function return false if the node is solved but setting
+// its label results in an invalid configuration, and true otherwise.
 bool node::check_unique (int label, std::vector<std::weak_ptr<node>>& group)
 {
   std::unordered_map<int, bool> glabels;
@@ -70,6 +90,11 @@ bool node::check_unique (int label, std::vector<std::weak_ptr<node>>& group)
 }
 
 
+// this function constructs the board and the graph of nodes. 'size' is
+// the length of one side of the square board, so the board vector that is
+// returned has size*size nodes in it. when constructing the board, this function
+// also popoulates each nodes's row, column, block and neighbours vectors, and
+// initializes its set of labels.
 std::vector<std::shared_ptr<node>> make_board (int size)
 {
   std::vector<std::shared_ptr<node>> board;
@@ -118,6 +143,8 @@ std::vector<std::shared_ptr<node>> make_board (int size)
 }
 
 
+// this function constructs a string representation of a board. unsolved nodes
+// are represented as "-"
 std::string format_board (std::vector<std::shared_ptr<node>>& board)
 {
   std::ostringstream str;
@@ -138,6 +165,8 @@ std::string format_board (std::vector<std::shared_ptr<node>>& board)
 }
 
 
+// this function sets the labels of the pre-solved nodes in a board by reading
+// an input string with numbers and "-". see "inputs/" for example input strings
 void set_board (std::vector<std::shared_ptr<node>>& board, std::string input)
 {
   int size = (int)std::sqrt(board.size());
@@ -156,6 +185,7 @@ void set_board (std::vector<std::shared_ptr<node>>& board, std::string input)
 }
 
 
+// this function returns a pointer to the first unsolved node in a board
 std::shared_ptr<node> unsolved_node (std::vector<std::shared_ptr<node>>& board)
 {
   for (auto n : board)
@@ -165,6 +195,9 @@ std::shared_ptr<node> unsolved_node (std::vector<std::shared_ptr<node>>& board)
 }
 
 
+// this function copies all of the state (i.e node labels) in a board into a
+// vector of pairs. each pair contains a map (for labels) and boolean (for 'solved'
+// boolean)
 std::vector<std::pair<std::unordered_map<int, bool>, bool>>
 capture_board (std::vector<std::shared_ptr<node>>& board)
 {
@@ -179,6 +212,7 @@ capture_board (std::vector<std::shared_ptr<node>>& board)
 }
 
 
+// this function restores a board to a captured state (see capture_board above)
 void restore_board (std::vector<std::shared_ptr<node>>& board,
                     std::vector<std::pair<std::unordered_map<int, bool>, bool>>& captured)
 {
@@ -189,6 +223,9 @@ void restore_board (std::vector<std::shared_ptr<node>>& board,
 }
 
 
+// this function applies a standard depth-first recursive algorithm to a board. this is
+// necessary when nodes cannot be solved by the "set -> update -> check_unique" graph
+// coloring mechanism
 bool bruteforce_board (std::vector<std::shared_ptr<node>>& board, std::shared_ptr<node> u)
 {
   if (u == nullptr) return true;
